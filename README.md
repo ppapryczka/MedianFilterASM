@@ -3,7 +3,7 @@ Simple implementation of median filter(https://en.wikipedia.org/wiki/Median_filt
 
 ---
 Program usage:
-program <input file path> <output file path>
+`program  <input file path>   <output file path>`
 
 Used technologies:
 - C
