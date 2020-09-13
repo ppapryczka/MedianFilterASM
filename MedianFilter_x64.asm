@@ -10,9 +10,9 @@ section .data
 array db 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 section .text
-global  MedianFilter_x64
+global  median_filter_x64
 
-MedianFilter_x64:
+median_filter_x64:
 
 ; prolog:
     push rbp
