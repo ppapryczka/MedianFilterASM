@@ -8,6 +8,9 @@
 // BMPFile and functions
 #include "bmp_file.h"
 
+// median filter in C
+#include "median_filter.h"
+
 #ifdef _cplusplus
 extern "C" {
 #endif
@@ -22,6 +25,54 @@ extern "C" {
 }
 #endif
 
+uint8_t* run_median_filter_on_image_asm(BMPFile* bmp_file, uint8_t* bmp_data){
+    // allocate memory on result data
+    uint8_t* result_data;
+    result_data = malloc(bmp_file->BMP_file_size * sizeof(uint8_t));
+    if (result_data == NULL){
+        return NULL;
+    }
+    
+    // run median filter
+    median_filter_x64(
+        bmp_data, 
+        result_data,
+        bmp_file->BMP_starting_address_of_data,
+        bmp_file->BMP_width,
+        bmp_file->BMP_height,
+        bmp_file->BMP_padding
+    );
+    
+    return result_data;
+}
+
+uint8_t* run_median_filter_on_image_c(BMPFile* bmp_file, uint8_t* bmp_data){
+    uint8_t* pixel_data = get_pixel_data(
+        bmp_data, 
+        bmp_file->BMP_starting_address_of_data,
+        bmp_file->BMP_width,
+        bmp_file->BMP_height,
+        bmp_file->BMP_padding
+    );
+    
+    printf_pixel_data(
+        pixel_data,
+        bmp_file->BMP_width, 
+        bmp_file->BMP_height 
+    );
+    
+    uint8_t* result_data = produce_image(
+        pixel_data, 
+        bmp_data,
+        bmp_file->BMP_starting_address_of_data,
+        bmp_file->BMP_width,
+        bmp_file->BMP_height, 
+        bmp_file->BMP_padding, 
+        bmp_file->BMP_file_size
+    );
+    
+    return result_data;
+}
 
 int main(int argc, char* argv[])
 {   
@@ -55,119 +106,38 @@ int main(int argc, char* argv[])
     printf("Reading data...\n");
     uint8_t* original_data = read_BMP_data(bmp_file);
     
-    // allocate memory for result
-    uint8_t* result_data;
-    result_data = malloc(bmp_file->BMP_file_size * sizeof(uint8_t));
-    
     // if any is NULL there is error in allocation
-    if (original_data == NULL || result_data == NULL){
+    if (original_data == NULL){
         printf("Error when try to allocate memory!");
         return 1;
     }
     
     // run median filter on original data
     printf("Running median filter...\n");
-    median_filter_x64(
-        original_data, 
-        result_data,
-        bmp_file->BMP_starting_address_of_data,
-        bmp_file->BMP_width,
-        bmp_file->BMP_height,
-        bmp_file->BMP_padding
-    );
-
+    
+    // run asm median filter version
+    uint8_t* result_data = run_median_filter_on_image_asm(bmp_file, original_data);
+    if (result_data == NULL){
+        printf("Error when try to allocate memory for result data!");
+        return 1;
+    }
+    // run C median filter version
+    // C version
+    
+    
     // write result data to output file
     printf("Writing result file to %s...\n", argv[2]);
     fwrite(result_data, 1, bmp_file->BMP_file_size, result_file);
     
-    // clear result memory and file
+    // clear result memory and and close file
     free(result_data);
     fclose(result_file);
     
+    // clear result BMP
     clear_BMP_file(bmp_file);
     
     printf("Done!\n");
     
 	return 0;
 }
- 
-/*
-    // check if program gets appropriate number of arguments
-    if(argc<3 || argc>3){
-        printf("Usage: program <input file path> <output file path>\n");
-        return 1;
-    }
-    
-    FILE *inputFile, *outputFile;
-    
-    if ((inputFile=fopen(argv[1], "rb"))==NULL){
-        printf ("Error when try to open: %s!\n", argv[1]);
-        return 1;
-    }
 
-    if((outputFile=fopen(argv[2], "wb"))==NULL){
-        printf("Error when try to open: %s!\n", argv[2]);
-        return 1;
-    }
-    
-
-    uint8_t tableForRead[TABLE_FOR_READ_SIZE];
-    uint64_t BMPFileSize, BMPStartingAddresOfData;
-    uint64_t BMPWidth, BMPHeight; 
-    uint64_t BMPPadding;
-
-    uint8_t *inputFileMemory,  *outputFileMemory;
-
-    
-    
-    // Load size of file in bytes
-    fseek(inputFile, BMP_FILE_SIZE_INFO_IN_FILE_OFFSET, 0);
-    fread(tableForRead, 1, TABLE_FOR_READ_SIZE, inputFile);    
-    BMPFileSize = *(uint32_t*)tableForRead;
-
-    // Load starting address of data
-    fseek(inputFile, STARTING_ADDRESS_OF_DATA_INFO_IN_FILE_OFFSET, 0);
-    fread(tableForRead, 1, TABLE_FOR_READ_SIZE, inputFile); 
-    BMPStartingAddresOfData = *(uint32_t*)tableForRead;
-
-    // Load width
-    fseek(inputFile, WIDTH_INFO_IN_FILE_OFFSET, 0);
-    fread(tableForRead, 1, TABLE_FOR_READ_SIZE, inputFile);    
-    BMPWidth = *(uint32_t*)tableForRead;
-
-    // Load heigth
-    fseek(inputFile, HEIGHT_INFO_IN_FILE_OFFSET, 0);
-    fread(tableForRead, 1, TABLE_FOR_READ_SIZE, inputFile);    
-    BMPHeight = *(uint32_t*)tableForRead;
-
-    // Allocate memory 
-    inputFileMemory =  malloc(BMPFileSize * sizeof(uint8_t));
-    outputFileMemory = malloc(BMPFileSize * sizeof(uint8_t));
-    
-    if (inputFileMemory == NULL || outputFileMemory == NULL){
-        printf("Error when try to allocate memory!");
-        return 2;
-    }
-
-    // Count padding
-    BMPPadding = (BMPWidth*3)%4;
-    if(BMPPadding!=0){
-        BMPPadding = 4 - BMPPadding;
-    }
-
-    // Read data
-    fseek(inputFile, 0, 0);
-    fread(inputFileMemory, 1, BMPFileSize, inputFile);
-
-    median_filter_x64(inputFileMemory, outputFileMemory, BMPStartingAddresOfData, 
-        BMPWidth, BMPHeight, BMPPadding);
-
-    // Write proccessed memory to output file
-    fwrite(outputFileMemory, 1, BMPFileSize, outputFile);
-    
-    // Free resources
-    fclose(inputFile);
-    fclose(outputFile);
-    free(inputFileMemory);
-   	free(outputFileMemory);
-*/
