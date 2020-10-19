@@ -83,7 +83,107 @@ uint8_t* read_BMP_data(BMPFile* bmp_file){
     return output_memory;
 }
 
+uint8_t* read_BMP_header(BMPFile* bmp_file){
+    // allocate memory
+    uint8_t* header_memory;
+    header_memory =  (uint8_t*)malloc(bmp_file->BMP_starting_address_of_data * sizeof(uint8_t));
+    
+    // check if allocation is success, if not return NULL
+    if (header_memory == NULL){
+        return NULL;
+    }
+    // read header data from file
+    fseek(bmp_file->file, 0, 0);
+    fread(header_memory, 1, bmp_file->BMP_starting_address_of_data, bmp_file->file);
+    
+    return header_memory;
+}
+
+
+uint8_t* convert_BMP_data_to_image_data(BMPFile* bmp_file, uint8_t* bmp_data){
+    // get size for image data
+    uint64_t result_data_size = bmp_file->BMP_width * bmp_file->BMP_height * 3;
+    
+    // allocate memory for result data
+    uint8_t* result_image_data;
+    result_image_data = (uint8_t*) malloc(result_data_size * sizeof(uint8_t));
+    
+    // iterate over image pixels as 2D table
+    for (uint64_t i=0; i<bmp_file->BMP_height; ++i){
+        for(uint64_t k=0; k<bmp_file->BMP_width; ++k){
+            
+            // address of pixel in BMP data
+            uint64_t pixel_address_in_bmp_data = 
+                (bmp_file->BMP_width*3+bmp_file->BMP_padding)*i + k*3 + bmp_file->BMP_starting_address_of_data;
+            
+            // address of pixel in result image data
+            uint64_t pixel_address_in_image_data = (bmp_file->BMP_width*i + k)*3;
+            
+            
+            // copy pixel
+            for(uint8_t l = 0; l<3; ++l){
+                result_image_data[pixel_address_in_image_data + l] = 
+                    bmp_data[pixel_address_in_bmp_data + l];
+            }
+        }
+    }
+    
+    return result_image_data;
+} 
+
+uint8_t* get_image_data_from_BMP_image(BMPFile *bmp_file){
+    // get BMP data from bmp_file
+    uint8_t* bmp_data = read_BMP_data(bmp_file);
+    
+    // convert BMP data to image data
+    uint8_t* image_data = convert_BMP_data_to_image_data(bmp_file, bmp_data);
+    
+    // free BMP data
+    free(bmp_data);
+    
+    return image_data;
+}
+
+uint8_t* produce_BMP_file(BMPFile *bmp_file, uint8_t* image_data){
+    // allocate memory for BMP image
+    uint8_t* result_data;
+    result_data = malloc(bmp_file->BMP_file_size * sizeof(uint8_t));
+    
+    // get header from original data
+    uint8_t* header_data = read_BMP_header(bmp_file);
+    
+    // copy header to result data
+    for (uint64_t i = 0; i<bmp_file->BMP_starting_address_of_data; ++i){
+        result_data[i] = header_data[i];
+    }
+    
+    // free header data
+    free(header_data);
+    
+    // copy pixels from image_data to result_data padding is omitted
+    for (uint64_t i=0; i<bmp_file->BMP_height; ++i){
+        for(uint64_t k=0; k<bmp_file->BMP_width; ++k){
+            
+            // address of pixel in image_data
+            uint64_t pixel_address_in_image_data = (bmp_file->BMP_width*i + k)*3;
+            
+            // address of pixel in result BMP data
+            uint64_t pixel_address_in_result_data = 
+                (bmp_file->BMP_width*3+bmp_file->BMP_padding)*i + k*3 + bmp_file->BMP_starting_address_of_data;
+            
+            // copy one pixel
+            for(uint8_t l = 0; l<3; ++l){
+                result_data[pixel_address_in_result_data + l] = 
+                    image_data[pixel_address_in_image_data + l];
+            }
+        }
+    }
+    
+    return result_data;
+}
+
 void print_BMP_file_info(BMPFile* bmp_file){
+    // print BMP file info
     printf("***\n");
     printf("BMP file info:\n");
     printf("File size: %ld\n", bmp_file->BMP_file_size);

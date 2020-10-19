@@ -24,7 +24,7 @@ extern "C" {
 #ifdef _cplusplus
 }
 #endif
-
+/*
 uint8_t* run_median_filter_on_image_asm(BMPFile* bmp_file, uint8_t* bmp_data){
     // allocate memory on result data
     uint8_t* result_data;
@@ -45,31 +45,17 @@ uint8_t* run_median_filter_on_image_asm(BMPFile* bmp_file, uint8_t* bmp_data){
     
     return result_data;
 }
+*/
 
-uint8_t* run_median_filter_on_image_c(BMPFile* bmp_file, uint8_t* bmp_data){
-    uint8_t* pixel_data = get_pixel_data(
-        bmp_data, 
-        bmp_file->BMP_starting_address_of_data,
-        bmp_file->BMP_width,
-        bmp_file->BMP_height,
-        bmp_file->BMP_padding
-    );
+uint8_t* run_median_filter_on_image_c(BMPFile* bmp_file, uint8_t* image_data){
     
-    printf_pixel_data(
-        pixel_data,
+    printf_image_data(
+        image_data,
         bmp_file->BMP_width, 
         bmp_file->BMP_height 
     );
     
-    uint8_t* result_data = produce_image(
-        pixel_data, 
-        bmp_data,
-        bmp_file->BMP_starting_address_of_data,
-        bmp_file->BMP_width,
-        bmp_file->BMP_height, 
-        bmp_file->BMP_padding, 
-        bmp_file->BMP_file_size
-    );
+    uint8_t* result_data = produce_BMP_file(bmp_file, image_data);
     
     return result_data;
 }
@@ -102,12 +88,12 @@ int main(int argc, char* argv[])
     print_BMP_file_info(bmp_file);
     
     
-    // read original BMP data
-    printf("Reading data...\n");
-    uint8_t* original_data = read_BMP_data(bmp_file);
+    // read original image  data
+    printf("Reading image data...\n");
+    uint8_t* image_data = get_image_data_from_BMP_image(bmp_file);
     
     // if any is NULL there is error in allocation
-    if (original_data == NULL){
+    if (image_data == NULL){
         printf("Error when try to allocate memory!");
         return 1;
     }
@@ -116,14 +102,17 @@ int main(int argc, char* argv[])
     printf("Running median filter...\n");
     
     // run asm median filter version
+    /*
     uint8_t* result_data = run_median_filter_on_image_asm(bmp_file, original_data);
     if (result_data == NULL){
         printf("Error when try to allocate memory for result data!");
         return 1;
     }
+    */
+    
     // run C median filter version
     // C version
-    
+    uint8_t* result_data = run_median_filter_on_image_c(bmp_file, image_data);
     
     // write result data to output file
     printf("Writing result file to %s...\n", argv[2]);
